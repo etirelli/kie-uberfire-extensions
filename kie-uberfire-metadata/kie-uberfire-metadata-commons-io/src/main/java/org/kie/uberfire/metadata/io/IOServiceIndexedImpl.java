@@ -205,7 +205,9 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
         watchedList.add( fs );
         watchServices.add( ws );
 
-        SimpleAsyncExecutorService.getDefaultInstance().execute( new DescriptiveRunnable() {
+        final SimpleAsyncExecutorService defaultInstance = SimpleAsyncExecutorService.getDefaultInstance();
+
+        SimpleAsyncExecutorService.getUnmanagedInstance().execute( new DescriptiveRunnable() {
             @Override
             public String getDescription() {
                 return "IOServiceIndexedImpl(" + ws.toString() + ")";
@@ -222,74 +224,86 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                     }
 
                     final List<WatchEvent<?>> events = wk.pollEvents();
-                    for ( WatchEvent object : events ) {
-                        try {
-                            final WatchContext context = ( (WatchContext) object.context() );
-                            if ( object.kind() == ENTRY_MODIFY || object.kind() == ENTRY_CREATE ) {
+                    // whenever events are found submit the actual operation to the executor to avoid blocking thread
+                    // and to have correct scope on application servers to gain access to CDI beans
+                    defaultInstance.execute(  new DescriptiveRunnable() {
+                        @Override
+                        public String getDescription() {
+                            return "IOServiceIndexedImpl(IndexOnEvent - " + ws.toString() + ")";
+                        }
 
-                                final Path path = context.getPath();
+                        @Override
+                        public void run() {
+                            for ( WatchEvent object : events ) {
+                                try {
+                                    final WatchContext context = ( (WatchContext) object.context() );
+                                    if ( object.kind() == ENTRY_MODIFY || object.kind() == ENTRY_CREATE ) {
 
-                                if ( !path.getFileName().toString().startsWith( "." ) ) {
-                                    //Default indexing
-                                    for ( final Class<? extends FileAttributeView> view : views ) {
-                                        getFileAttributeView( path,
-                                                              view );
-                                    }
-                                    final FileAttribute<?>[] allAttrs = convert( readAttributes( path ) );
-                                    indexEngine.index( KObjectUtil.toKObject( path,
-                                                                              allAttrs ) );
+                                        final Path path = context.getPath();
 
-                                    //Additional indexing
-                                    for ( Indexer indexer : IndexersFactory.getIndexers() ) {
-                                        if ( indexer.supportsPath( path ) ) {
-                                            final KObject kObject = indexer.toKObject( path );
-                                            if ( kObject != null ) {
-                                                indexEngine.index( kObject );
+                                        if ( !path.getFileName().toString().startsWith( "." ) ) {
+                                            //Default indexing
+                                            for ( final Class<? extends FileAttributeView> view : views ) {
+                                                getFileAttributeView( path,
+                                                                      view );
+                                            }
+                                            final FileAttribute<?>[] allAttrs = convert( readAttributes( path ) );
+                                            indexEngine.index( KObjectUtil.toKObject( path,
+                                                                                      allAttrs ) );
+
+                                            //Additional indexing
+                                            for ( Indexer indexer : IndexersFactory.getIndexers() ) {
+                                                if ( indexer.supportsPath( path ) ) {
+                                                    final KObject kObject = indexer.toKObject( path );
+                                                    if ( kObject != null ) {
+                                                        indexEngine.index( kObject );
+                                                    }
+                                                }
                                             }
                                         }
                                     }
-                                }
-                            }
-                            if ( object.kind() == StandardWatchEventKind.ENTRY_RENAME ) {
-                                //Default indexing
-                                final Path sourcePath = context.getOldPath();
-                                final Path destinationPath = context.getPath();
-                                indexEngine.rename( KObjectUtil.toKObjectKey( sourcePath ),
-                                                    KObjectUtil.toKObject( destinationPath ) );
+                                    if ( object.kind() == StandardWatchEventKind.ENTRY_RENAME ) {
+                                        //Default indexing
+                                        final Path sourcePath = context.getOldPath();
+                                        final Path destinationPath = context.getPath();
+                                        indexEngine.rename( KObjectUtil.toKObjectKey( sourcePath ),
+                                                            KObjectUtil.toKObject( destinationPath ) );
 
-                                //Additional indexing
-                                for ( Indexer indexer : IndexersFactory.getIndexers() ) {
-                                    if ( indexer.supportsPath( destinationPath ) ) {
-                                        final KObjectKey kObjectSource = indexer.toKObjectKey( sourcePath );
-                                        final KObject kObjectDestination = indexer.toKObject( destinationPath );
-                                        if ( kObjectSource != null && kObjectDestination != null ) {
-                                            indexEngine.rename( kObjectSource,
-                                                                kObjectDestination );
+                                        //Additional indexing
+                                        for ( Indexer indexer : IndexersFactory.getIndexers() ) {
+                                            if ( indexer.supportsPath( destinationPath ) ) {
+                                                final KObjectKey kObjectSource = indexer.toKObjectKey( sourcePath );
+                                                final KObject kObjectDestination = indexer.toKObject( destinationPath );
+                                                if ( kObjectSource != null && kObjectDestination != null ) {
+                                                    indexEngine.rename( kObjectSource,
+                                                                        kObjectDestination );
+                                                }
+                                            }
                                         }
                                     }
-                                }
-                            }
 
-                            if ( object.kind() == StandardWatchEventKind.ENTRY_DELETE ) {
-                                //Default indexing
-                                final Path oldPath = context.getOldPath();
-                                indexEngine.delete( KObjectUtil.toKObjectKey( oldPath ) );
+                                    if ( object.kind() == StandardWatchEventKind.ENTRY_DELETE ) {
+                                        //Default indexing
+                                        final Path oldPath = context.getOldPath();
+                                        indexEngine.delete( KObjectUtil.toKObjectKey( oldPath ) );
 
-                                //Additional indexing
-                                for ( Indexer indexer : IndexersFactory.getIndexers() ) {
-                                    if ( indexer.supportsPath( oldPath ) ) {
-                                        final KObjectKey kObject = indexer.toKObjectKey( oldPath );
-                                        if ( kObject != null ) {
-                                            indexEngine.delete( kObject );
+                                        //Additional indexing
+                                        for ( Indexer indexer : IndexersFactory.getIndexers() ) {
+                                            if ( indexer.supportsPath( oldPath ) ) {
+                                                final KObjectKey kObject = indexer.toKObjectKey( oldPath );
+                                                if ( kObject != null ) {
+                                                    indexEngine.delete( kObject );
+                                                }
+                                            }
                                         }
                                     }
+
+                                } catch ( final Exception ex ) {
+                                    LOGGER.error( "Error during indexing. { " + object.toString() + " }", ex );
                                 }
                             }
-
-                        } catch ( final Exception ex ) {
-                            LOGGER.error( "Error during indexing. { " + object.toString() + " }", ex );
                         }
-                    }
+                    });
                 }
             }
         } );

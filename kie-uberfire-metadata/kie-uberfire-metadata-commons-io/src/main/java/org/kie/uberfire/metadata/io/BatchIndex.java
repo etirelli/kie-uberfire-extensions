@@ -100,7 +100,7 @@ public final class BatchIndex {
     }
 
     public void runAsync( final Path root ) {
-        SimpleAsyncExecutorService.getUnmanagedInstance().execute( new DescriptiveRunnable() {
+        SimpleAsyncExecutorService.getDefaultInstance().execute( new DescriptiveRunnable() {
             @Override
             public String getDescription() {
                 return "Path BatchIndex [" + root.toString() + "]";
