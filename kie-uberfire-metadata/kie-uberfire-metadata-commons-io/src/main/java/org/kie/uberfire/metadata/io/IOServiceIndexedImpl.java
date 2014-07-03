@@ -229,7 +229,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
         watchedList.add( fs );
         watchServices.add( ws );
 
-        SimpleAsyncExecutorService.getUnmanagedInstance().execute( new DescriptiveRunnable() {
+        SimpleAsyncExecutorService.getDefaultInstance().execute( new DescriptiveRunnable() {
             @Override
             public String getDescription() {
                 return "IOServiceIndexedImpl(" + ws.toString() + ")";
