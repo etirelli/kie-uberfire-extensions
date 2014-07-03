@@ -64,19 +64,14 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
 
     private final Class<? extends FileAttributeView>[] views;
     private final List<FileSystem> watchedList = new ArrayList<FileSystem>();
-    private final Set<Indexer> additionalIndexers;
     private final List<WatchService> watchServices = new ArrayList<WatchService>();
 
     public IOServiceIndexedImpl( final MetaIndexEngine indexEngine,
-                                 final Set<Indexer> additionalIndexers,
                                  final Class<? extends FileAttributeView>... views ) {
         super();
         this.indexEngine = checkNotNull( "indexEngine",
                                          indexEngine );
-        this.additionalIndexers = checkNotNull( "additionalIndexers",
-                                                additionalIndexers );
         this.batchIndex = new BatchIndex( indexEngine,
-                                          additionalIndexers,
                                           this,
                                           views );
         this.views = views;
@@ -84,15 +79,11 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
 
     public IOServiceIndexedImpl( final String id,
                                  final MetaIndexEngine indexEngine,
-                                 final Set<Indexer> additionalIndexers,
                                  final Class<? extends FileAttributeView>... views ) {
         super( id );
         this.indexEngine = checkNotNull( "indexEngine",
                                          indexEngine );
-        this.additionalIndexers = checkNotNull( "additionalIndexers",
-                                                additionalIndexers );
         this.batchIndex = new BatchIndex( indexEngine,
-                                          additionalIndexers,
                                           this,
                                           views );
         this.views = views;
@@ -100,15 +91,11 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
 
     public IOServiceIndexedImpl( final IOWatchService watchService,
                                  final MetaIndexEngine indexEngine,
-                                 final Set<Indexer> additionalIndexers,
                                  final Class<? extends FileAttributeView>... views ) {
         super( watchService );
         this.indexEngine = checkNotNull( "indexEngine",
                                          indexEngine );
-        this.additionalIndexers = checkNotNull( "additionalIndexers",
-                                                additionalIndexers );
         this.batchIndex = new BatchIndex( indexEngine,
-                                          additionalIndexers,
                                           this,
                                           views );
         this.views = views;
@@ -117,16 +104,12 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
     public IOServiceIndexedImpl( final String id,
                                  final IOWatchService watchService,
                                  final MetaIndexEngine indexEngine,
-                                 final Set<Indexer> additionalIndexers,
                                  final Class<? extends FileAttributeView>... views ) {
         super( id,
                watchService );
         this.indexEngine = checkNotNull( "indexEngine",
                                          indexEngine );
-        this.additionalIndexers = checkNotNull( "additionalIndexers",
-                                                additionalIndexers );
         this.batchIndex = new BatchIndex( indexEngine,
-                                          additionalIndexers,
                                           this,
                                           views );
         this.views = views;
@@ -135,16 +118,12 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
     public IOServiceIndexedImpl( final LockService lockService,
                                  final IOWatchService watchService,
                                  final MetaIndexEngine indexEngine,
-                                 final Set<Indexer> additionalIndexers,
                                  final Class<? extends FileAttributeView>... views ) {
         super( lockService,
                watchService );
         this.indexEngine = checkNotNull( "indexEngine",
                                          indexEngine );
-        this.additionalIndexers = checkNotNull( "additionalIndexers",
-                                                additionalIndexers );
         this.batchIndex = new BatchIndex( indexEngine,
-                                          additionalIndexers,
                                           this,
                                           views );
         this.views = views;
@@ -161,10 +140,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                watchService );
         this.indexEngine = checkNotNull( "indexEngine",
                                          indexEngine );
-        this.additionalIndexers = checkNotNull( "additionalIndexers",
-                                                additionalIndexers );
         this.batchIndex = new BatchIndex( indexEngine,
-                                          additionalIndexers,
                                           this,
                                           views );
         this.views = views;
@@ -264,7 +240,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                                                                               allAttrs ) );
 
                                     //Additional indexing
-                                    for ( Indexer indexer : additionalIndexers ) {
+                                    for ( Indexer indexer : IndexersFactory.getIndexers() ) {
                                         if ( indexer.supportsPath( path ) ) {
                                             final KObject kObject = indexer.toKObject( path );
                                             if ( kObject != null ) {
@@ -282,7 +258,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                                                     KObjectUtil.toKObject( destinationPath ) );
 
                                 //Additional indexing
-                                for ( Indexer indexer : additionalIndexers ) {
+                                for ( Indexer indexer : IndexersFactory.getIndexers() ) {
                                     if ( indexer.supportsPath( destinationPath ) ) {
                                         final KObjectKey kObjectSource = indexer.toKObjectKey( sourcePath );
                                         final KObject kObjectDestination = indexer.toKObject( destinationPath );
@@ -300,7 +276,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                                 indexEngine.delete( KObjectUtil.toKObjectKey( oldPath ) );
 
                                 //Additional indexing
-                                for ( Indexer indexer : additionalIndexers ) {
+                                for ( Indexer indexer : IndexersFactory.getIndexers() ) {
                                     if ( indexer.supportsPath( oldPath ) ) {
                                         final KObjectKey kObject = indexer.toKObjectKey( oldPath );
                                         if ( kObject != null ) {

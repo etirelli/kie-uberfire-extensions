@@ -16,7 +16,6 @@
 
 package org.kie.uberfire.metadata.io;
 
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.kie.uberfire.metadata.engine.Indexer;
@@ -49,19 +48,15 @@ public final class BatchIndex {
     private static final Logger LOG = LoggerFactory.getLogger( BatchIndex.class );
 
     private final MetaIndexEngine indexEngine;
-    private final Set<Indexer> additionalIndexers;
     private final IOService ioService;
     private final Class<? extends FileAttributeView>[] views;
     private final AtomicBoolean indexDisposed = new AtomicBoolean( false );
 
     public BatchIndex( final MetaIndexEngine indexEngine,
-                       final Set<Indexer> additionalIndexers,
                        final IOService ioService,
                        final Class<? extends FileAttributeView>... views ) {
         this.indexEngine = checkNotNull( "indexEngine",
                                          indexEngine );
-        this.additionalIndexers = checkNotNull( "additionalIndexers",
-                                                additionalIndexers );
         this.ioService = checkNotNull( "ioService",
                                        ioService );
         this.views = views;
@@ -160,7 +155,7 @@ public final class BatchIndex {
                                           }
 
                                           //Additional indexing
-                                          for ( Indexer indexer : additionalIndexers ) {
+                                          for ( Indexer indexer : IndexersFactory.getIndexers() ) {
                                               if ( indexer.supportsPath( file ) ) {
                                                   final KObject kObject = indexer.toKObject( file );
                                                   if ( kObject != null ) {
