@@ -206,6 +206,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
         watchServices.add( ws );
 
         final SimpleAsyncExecutorService defaultInstance = SimpleAsyncExecutorService.getDefaultInstance();
+        final SimpleAsyncExecutorService unmanagedInstance = SimpleAsyncExecutorService.getUnmanagedInstance();
 
         SimpleAsyncExecutorService.getUnmanagedInstance().execute( new DescriptiveRunnable() {
             @Override
@@ -224,9 +225,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                     }
 
                     final List<WatchEvent<?>> events = wk.pollEvents();
-                    // whenever events are found submit the actual operation to the executor to avoid blocking thread
-                    // and to have correct scope on application servers to gain access to CDI beans
-                    defaultInstance.execute(  new DescriptiveRunnable() {
+                    DescriptiveRunnable job = new DescriptiveRunnable() {
                         @Override
                         public String getDescription() {
                             return "IOServiceIndexedImpl(IndexOnEvent - " + ws.toString() + ")";
@@ -245,11 +244,11 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                                             //Default indexing
                                             for ( final Class<? extends FileAttributeView> view : views ) {
                                                 getFileAttributeView( path,
-                                                                      view );
+                                                        view );
                                             }
                                             final FileAttribute<?>[] allAttrs = convert( readAttributes( path ) );
                                             indexEngine.index( KObjectUtil.toKObject( path,
-                                                                                      allAttrs ) );
+                                                    allAttrs ) );
 
                                             //Additional indexing
                                             for ( Indexer indexer : IndexersFactory.getIndexers() ) {
@@ -267,7 +266,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                                         final Path sourcePath = context.getOldPath();
                                         final Path destinationPath = context.getPath();
                                         indexEngine.rename( KObjectUtil.toKObjectKey( sourcePath ),
-                                                            KObjectUtil.toKObject( destinationPath ) );
+                                                KObjectUtil.toKObject( destinationPath ) );
 
                                         //Additional indexing
                                         for ( Indexer indexer : IndexersFactory.getIndexers() ) {
@@ -276,7 +275,7 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                                                 final KObject kObjectDestination = indexer.toKObject( destinationPath );
                                                 if ( kObjectSource != null && kObjectDestination != null ) {
                                                     indexEngine.rename( kObjectSource,
-                                                                        kObjectDestination );
+                                                            kObjectDestination );
                                                 }
                                             }
                                         }
@@ -303,7 +302,15 @@ public class IOServiceIndexedImpl extends IOServiceDotFileImpl {
                                 }
                             }
                         }
-                    });
+                    };
+                    if (defaultInstance.equals(unmanagedInstance)) {
+                        // if default and unmanaged are same instance simply run the job to avoid duplicated threads
+                        job.run();
+                    } else {
+                        // whenever events are found submit the actual operation to the executor to avoid blocking thread
+                        // and to have correct scope on application servers to gain access to CDI beans
+                        defaultInstance.execute( job );
+                    }
                 }
             }
         } );
